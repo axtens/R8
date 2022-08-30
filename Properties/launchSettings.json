@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "R8": {
+      "commandName": "Project",
+      "commandLineArgs": "repl --bindebug -- dog, cat, \"cow, wolf\""
+    }
+  }
+}
