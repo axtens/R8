@@ -33,6 +33,12 @@ namespace R8
             Program.v8.Script.systypeof = (Func<object, Type>)SysTypeOf;
             Program.v8.Script.assembly = (Func<string, string, bool>)AddNamedAssembly;
             Program.v8.Script.toArray = (Func<Array, object>)ToArray;
+            Program.v8.Script.spit = (Action<string, string>)Spit;
+        }
+
+        private static void Spit(string file, string arg)
+        {
+            File.WriteAllText(file, arg);
         }
 
         private static Type SysTypeOf(object arg)
@@ -156,7 +162,7 @@ namespace R8
             var htc = new HostTypeCollection();
             try
             {
-                var assem = System.Reflection.Assembly.LoadFrom(dllPath);
+                var assem = Assembly.LoadFrom(dllPath);
                 /// var assem = Assembly.LoadFrom(AssemblyName.GetAssemblyName(dllPath));
                 htc.AddAssembly(assem);
                 if (name.Length == 0)

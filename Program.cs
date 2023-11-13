@@ -2,6 +2,8 @@
 using Microsoft.ClearScript;
 using Microsoft.ClearScript.V8;
 
+using RestSharp;
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -21,17 +23,15 @@ namespace R8
         static int Main(string[] args)
         {
             bool binDebug = false;
-            bool debug = false;
-
             if (args.Length == 0)
             {
-                Console.Error.WriteLine("R8 {run|repl} {script} [--bindebug] [-- args...]");
+                Console.Error.WriteLine("R8 {run|repl|debug} {script} [--bindebug] [-- args...]");
                 return -1;
             }
             var argsList = new List<string>();
             argsList.AddRange(args);
 
-            if (argsList.ElementAt(0) != "run" && argsList.ElementAt(0) != "repl")
+            if (argsList[0] != "run" && argsList[0] != "repl" && argsList[0] != "debug")
             {
                 Console.Error.WriteLine("run or repl");
                 return -1;
@@ -74,23 +74,18 @@ namespace R8
             {
                 binDebug = true;
             }
-
-            if (parameters.Contains("--debug"))
-            {
-                Console.WriteLine("Launch Chrome. Navigate to chrome://inspect");
-                debug = true;
-            }
-
+            
             if (binDebug)
             {
-                System.Diagnostics.Debugger.Launch();
+                Debugger.Launch();
             }
 
             var V8Setup = V8ScriptEngineFlags.EnableDebugging |
-                V8ScriptEngineFlags.EnableRemoteDebugging |
+                // V8ScriptEngineFlags.EnableRemoteDebugging |
                 V8ScriptEngineFlags.DisableGlobalMembers;
 
-            if (debug) V8Setup |= V8ScriptEngineFlags.AwaitDebuggerAndPauseOnStart;
+            if (args.ElementAt(0) == "debug") V8Setup |= V8ScriptEngineFlags.AwaitDebuggerAndPauseOnStart;
+            
 
             string cmd = argsList[0];
             string script = argsList[1];
@@ -119,8 +114,20 @@ namespace R8
 
             ParseAutoLoadItems(v8, v8.Script.__.autoloadPath);
 
-            if (cmd == "run")
+            if (cmd == "run" || cmd == "debug")
             {
+                /*if (cmd == "debug")
+                {
+                    Console.WriteLine("Launching Chrome. Navigating to chrome://inspect/#devices");
+                    ProcessStartInfo psi = new()
+                    {
+                        Arguments = "chrome://inspect/#devices",
+                        UseShellExecute = false,
+                        FileName = "chromium.exe"
+                    };
+                    Process.Start(psi);
+                    debug = true;
+                }*/
                 var context = v8.Compile(File.ReadAllText(script));
                 object evaluand = v8.Evaluate(context);
                 if (evaluand.GetType() != typeof(VoidResult) && evaluand.GetType() != typeof(Undefined))
@@ -134,6 +141,8 @@ namespace R8
                 {
                     EvaluateBeforeRepl(script);
                 }
+                v8.Script.__.logPath = Path.GetDirectoryName(replFile);
+                v8.Script.__.logFile = replFile;
                 Console.WriteLine($"Logging to {replFile}");
                 RunREPL(replFile);
             }
@@ -209,7 +218,7 @@ namespace R8
         {
             Version version = Assembly.GetExecutingAssembly().GetName().Version;
             var Value = new DateTime(2000, 1, 1).AddDays(version.Build).AddSeconds(version.MinorRevision * 2);
-            return string.Format("{0} [{1}]", version.ToString(), Value.ToString("yyyy'-'MM'-'dd' 'HH':'mm':'ss"));
+            return $"{version} [{Value:yyyy'-'MM'-'dd' 'HH':'mm':'ss}]";
         }
 
         private static void RunREPL(string fileName)
@@ -273,6 +282,21 @@ namespace R8
                                                             "System.Core",
                                                             "System.Data",
                                                             "System.Net"));
+
+            ThirdPartyLibraries();
+
+        }
+
+        private static void ThirdPartyLibraries()
+        {
+            v8.AddHostType("RestClient", typeof(RestClient));
+            v8.AddHostType("RestClientExtensions", typeof(RestSharp.RestClientExtensions));
+            v8.AddHostType("RestDataFormat", typeof(RestSharp.DataFormat));
+            v8.AddHostType("RestMethod", typeof(RestSharp.Method));
+            v8.AddHostType("RestRequest", typeof(RestRequest));
+            v8.AddHostType("RestResponse", typeof(RestResponse));
+            v8.AddHostType("RestHttpBasicAuthenticator", typeof(RestSharp.Authenticators.HttpBasicAuthenticator));
+            v8.AddHostType("RestParameterType", typeof(RestSharp.ParameterType));
         }
     }
 }
